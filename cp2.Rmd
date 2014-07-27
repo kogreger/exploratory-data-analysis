@@ -1,0 +1,135 @@
+---
+title: "cp2.R"
+output: html_document
+---
+
+Course Project 2
+================
+
+```{r loadData}
+require(plyr)
+require(ggplot2)
+
+# set working directory
+setwd("~/Documents/Coursera/Data Science Specialization/Exploratory Data Analysis/exploratory-data-analysis")
+
+# load data from RDS files
+NEI <- readRDS("exdata-data-NEI_data/summarySCC_PM25.rds")
+SCC <- readRDS("exdata-data-NEI_data/Source_Classification_Code.rds")
+
+# optimize variable names
+names(NEI) <- tolower(names(NEI))
+names(SCC) <- tolower(names(SCC))
+
+```
+
+
+1. Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008.
+
+```{r Q1}
+# summarize all emissions per year
+q1 <- ddply(NEI, ~ year, summarize, total.emissions = sum(emissions))
+
+# create base plot
+plot(q1, type = "b", 
+     main = "Sum of Emissions per Year")
+```
+
+
+2. Have total emissions from PM2.5 decreased in the Baltimore City, Maryland (fips == "24510") from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+
+```{r Q2}
+# summarize all emissions per year in Baltimore
+q2 <- ddply(NEI[NEI$fips == "24510", ], ~ year, summarize, 
+            total.emissions = sum(emissions))
+
+# create base plot
+plot(q2, type = "b", 
+     main = "Sum of Emissions per Year, Baltimore")
+```
+
+
+3. Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999–2008 for Baltimore City? Which have seen increases in emissions from 1999–2008? Use the ggplot2 plotting system to make a plot answer this question.
+
+```{r Q3}
+# summarize all emissions per year and type in Baltimore
+q3 <- ddply(NEI[NEI$fips == "24510", ], c("year", "type"), summarize, 
+            total.emissions = sum(emissions))
+
+# create ggplot plot
+qplot(year, total.emissions, data = q3, geom = "line", facets = ~ type, 
+     main = "Sum of Emissions per Year and Type, Baltimore")
+```
+
+
+4. Across the United States, how have emissions from coal combustion-related sources changed from 1999–2008?
+
+```{r Q4}
+# main question: what are "coal combustion-related sources"?
+# -> show all distinct ei.sectors from SCC data (59)
+levels(SCC$ei.sector)
+# => everything starting with "Fuel Comb" (fuel combustion), 
+#    and ending in "Coal"
+# filter for relevant SCCs (99)
+q4.scc <- SCC[grep("^Fuel Comb .* Coal$", SCC$ei.sector), ]
+# remove unnecessary factor levels
+q4.scc$scc <- factor(q4.scc$scc)
+
+# summarize all emissions per year for filtered SCCs
+q4 <- ddply(NEI[NEI$scc %in% q4.scc$scc, ], ~ year, summarize, 
+            total.emissions = sum(emissions))
+
+# create base plot
+plot(q4, type = "b", 
+     main = "Sum of Emissions from Coal\nCombustion-Related Sources per Year")
+```
+
+
+5. How have emissions from motor vehicle sources changed from 1999–2008 in Baltimore City?
+
+```{r Q5}
+# main question: what are "motor vehicle sources"?
+# -> show all distinct ei.sectors from SCC data (59)
+levels(SCC$ei.sector)
+# => everything starting with "Mobile - On-Road", 
+#    and ending in "Vehicles" (1,138)
+# filter for relevant SCCs
+q5.scc <- SCC[grep("^Mobile - On-Road .* Vehicles$", SCC$ei.sector), ]
+# remove unnecessary factor levels
+q5.scc$scc <- factor(q5.scc$scc)
+
+# summarize all emissions per year for filtered SCCs in Baltimore
+q5 <- ddply(NEI[NEI$scc %in% q5.scc$scc & NEI$fips == "24510", ], ~ year, 
+            summarize, 
+            total.emissions = sum(emissions))
+
+# create base plot
+plot(q5, type = "b", 
+     main = "Sum of Emissions from Motor Vehicle\nSources per Year in Baltimore")
+```
+
+
+6. Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California (fips == "06037"). Which city has seen greater changes over time in motor vehicle emissions?
+
+```{r Q6}
+# main question: what are "motor vehicle sources"?
+# -> show all distinct ei.sectors from SCC data (59)
+levels(SCC$ei.sector)
+# => everything starting with "Mobile - On-Road", 
+#    and ending in "Vehicles" (1,138)
+# filter for relevant SCCs
+q6.scc <- SCC[grep("^Mobile - On-Road .* Vehicles$", SCC$ei.sector), ]
+# remove unnecessary factor levels
+q6.scc$scc <- factor(q6.scc$scc)
+
+# summarize all emissions per year for filtered SCCs in Baltimore and LA County
+q6 <- ddply(NEI[NEI$scc %in% q5.scc$scc & 
+                    (NEI$fips == "24510" | NEI$fips == "06037"), ], 
+            c("year", "fips"), 
+            summarize, 
+            total.emissions = sum(emissions))
+
+# create ggplot plot
+qplot(year, total.emissions, data = q6, geom = "line", facets = ~ fips, 
+     main = "Sum of Emissions from Motor Vehicle Sources per Year\nin Los Angeles County (left) and Baltimore (right)")
+```
